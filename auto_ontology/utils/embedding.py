@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Literal
 import httpx
 from openai import APIStatusError, Omit, OpenAI
 
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import resolve, resolve_headers
 from auto_ontology.vdb.records import write_embedded_rows
 
 if TYPE_CHECKING:
@@ -96,6 +96,7 @@ class EmbedParams:
     inference_batch_size: int = 32
     nim_http_max_concurrent: int = 32
     request_timeout_s: float = 600.0
+    extra_headers: dict[str, str] = field(default_factory=dict, repr=False)
 
 
 def get_embed_params() -> EmbedParams:
@@ -103,6 +104,7 @@ def get_embed_params() -> EmbedParams:
         embed_invoke_url=_EMBED_ENDPOINT,
         model_name=_EMBED_MODEL,
         api_key=_EMBED_API_KEY,
+        extra_headers=resolve_headers("EMBED"),
     )
 
 
@@ -136,6 +138,7 @@ def _new_client(params: EmbedParams, http_client: httpx.Client | None = None) ->
         api_key=params.api_key or "unused",
         max_retries=_REQUEST_RETRIES,
         http_client=http_client,
+        default_headers=params.extra_headers,
     )
 
 

@@ -242,6 +242,44 @@ def test_non_reasoning_client_is_marked(monkeypatch: Any) -> None:
     assert not llm_invoke._is_non_reasoning_client(_Binding(object()))
 
 
+def test_get_llm_client_forwards_extra_headers(monkeypatch: Any) -> None:
+    sentinel = object()
+    captured: dict[str, Any] = {}
+
+    def _build(*, default_headers: dict[str, str], **kwargs: Any) -> object:
+        captured["default_headers"] = default_headers
+        return sentinel
+
+    monkeypatch.setattr(llm_invoke, "_API_KEY", "sk-test")
+    monkeypatch.setattr(llm_invoke, "_EXTRA_HEADERS", {"userid": "alice"})
+    monkeypatch.setattr(llm_invoke, "_build_client", _build)
+
+    client = llm_invoke.get_llm_client()
+
+    assert client is sentinel
+    assert captured["default_headers"] == {"userid": "alice"}
+
+
+def test_get_non_reasoning_llm_client_forwards_extra_headers(
+    monkeypatch: Any,
+) -> None:
+    sentinel = object()
+    captured: dict[str, Any] = {}
+
+    def _build(*, default_headers: dict[str, str], **kwargs: Any) -> object:
+        captured["default_headers"] = default_headers
+        return sentinel
+
+    monkeypatch.setattr(llm_invoke, "_NON_REASONING_API_KEY", "sk-test")
+    monkeypatch.setattr(llm_invoke, "_NON_REASONING_EXTRA_HEADERS", {"userid": "bob"})
+    monkeypatch.setattr(llm_invoke, "_build_client", _build)
+
+    client = llm_invoke.get_non_reasoning_llm_client()
+
+    assert client is sentinel
+    assert captured["default_headers"] == {"userid": "bob"}
+
+
 def test_endless_bound_chain_is_not_followed_forever() -> None:
     """A ``MagicMock`` has a fresh ``bound`` on every access; the walk must stop."""
     assert not llm_invoke._is_non_reasoning_client(MagicMock())

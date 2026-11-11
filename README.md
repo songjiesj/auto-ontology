@@ -85,6 +85,21 @@ setup is to fill in `DEFAULT_MODELS_*` and override per-triplet fields only wher
 they differ (e.g. `EMBED_MODEL`, `NON_REASONING_MODEL`). `*_API_KEY` also falls
 back to the legacy `NVIDIA_API_KEY` for backward compatibility.
 
+To point every role at an OpenAI-compatible gateway that requires an extra
+header on each request (e.g. an intranet gateway demanding a per-user identity
+header), set the endpoint/model to the gateway and supply the header as a JSON
+object:
+
+```dotenv
+DEFAULT_MODELS_ENDPOINT=https://gateway.example/v1
+DEFAULT_MODELS_MODEL=openai/<gateway-model-name>
+DEFAULT_MODELS_EXTRA_HEADERS={"userid":"xxxxxx"}
+```
+
+`DEFAULT_MODELS_EXTRA_HEADERS` applies to every role; `<PREFIX>_EXTRA_HEADERS`
+(`REASONING` / `NON_REASONING` / `EMBED` / `RERANK`) overrides it for that role
+only.
+
 ## Quickstart
 
 This runs Auto-Ontology with Docker Compose against Wide World Importers,

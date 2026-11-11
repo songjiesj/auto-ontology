@@ -20,6 +20,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     for prefix in _PREFIXES:
         for field in _FIELDS:
             monkeypatch.delenv(f"{prefix}_{field}", raising=False)
+        monkeypatch.delenv(f"{prefix}_EXTRA_HEADERS", raising=False)
     for name in _LEGACY:
         monkeypatch.delenv(name, raising=False)
     return monkeypatch
@@ -68,3 +69,44 @@ def test_an_explicit_setting_wins_over_the_default(
     clean_env.setenv("REASONING_MODEL", "nvidia/some-other-model")
 
     assert model_config.resolve("REASONING", "MODEL") == "nvidia/some-other-model"
+
+
+def test_resolve_headers_reads_the_role_specific_var(
+    clean_env: pytest.MonkeyPatch,
+) -> None:
+    clean_env.setenv("REASONING_EXTRA_HEADERS", '{"userid": "alice"}')
+
+    assert model_config.resolve_headers("REASONING") == {"userid": "alice"}
+
+
+def test_resolve_headers_falls_back_to_the_shared_default(
+    clean_env: pytest.MonkeyPatch,
+) -> None:
+    clean_env.setenv("DEFAULT_MODELS_EXTRA_HEADERS", '{"userid": "shared"}')
+
+    assert model_config.resolve_headers("EMBED") == {"userid": "shared"}
+
+
+def test_resolve_headers_role_specific_wins_over_the_default(
+    clean_env: pytest.MonkeyPatch,
+) -> None:
+    clean_env.setenv("DEFAULT_MODELS_EXTRA_HEADERS", '{"userid": "shared"}')
+    clean_env.setenv("REASONING_EXTRA_HEADERS", '{"userid": "alice", "x": "y"}')
+
+    assert model_config.resolve_headers("REASONING") == {"userid": "alice", "x": "y"}
+
+
+def test_resolve_headers_defaults_to_empty(clean_env: pytest.MonkeyPatch) -> None:
+    assert model_config.resolve_headers("RERANK") == {}
+
+
+def test_resolve_headers_ignores_malformed_json(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("DEFAULT_MODELS_EXTRA_HEADERS", "{not json")
+
+    assert model_config.resolve_headers("EMBED") == {}
+
+
+def test_resolve_headers_ignores_a_non_object(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("DEFAULT_MODELS_EXTRA_HEADERS", '["a", "b"]')
+
+    assert model_config.resolve_headers("EMBED") == {}

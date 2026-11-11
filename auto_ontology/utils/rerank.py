@@ -24,7 +24,7 @@ from typing import Any
 
 import httpx
 
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import resolve, resolve_headers
 
 # Hosted NeMo reranking endpoint — no local GPU required. Override RERANK_ENDPOINT
 # to point at a self-hosted vLLM/NIM ranking server. Each field falls back to
@@ -32,16 +32,18 @@ from auto_ontology.utils.model_config import resolve
 _RERANK_ENDPOINT = resolve("RERANK", "ENDPOINT")
 _RERANK_MODEL = resolve("RERANK", "MODEL")
 _RERANK_API_KEY = resolve("RERANK", "API_KEY")
+_RERANK_EXTRA_HEADERS = resolve_headers("RERANK")
 
 _TIMEOUT_S = 30.0
 
 
-def get_rerank_kwargs() -> dict[str, str]:
+def get_rerank_kwargs() -> dict[str, Any]:
     """Keyword args for :func:`rerank_hits` (remote NeMo reranking endpoint)."""
     return {
         "rerank_invoke_url": _RERANK_ENDPOINT,
         "model_name": _RERANK_MODEL,
         "api_key": _RERANK_API_KEY,
+        "extra_headers": _RERANK_EXTRA_HEADERS,
     }
 
 
@@ -53,7 +55,13 @@ def _ranking_url(endpoint: str) -> str:
 
 
 def _scores(
-    query: str, documents: list[str], *, url: str, model_name: str, api_key: str
+    query: str,
+    documents: list[str],
+    *,
+    url: str,
+    model_name: str,
+    api_key: str,
+    extra_headers: dict[str, str] | None = None,
 ) -> list[float]:
     """One score per document, higher is better; ``-inf`` for any not returned."""
     v1 = url.endswith("/rerank")
@@ -72,6 +80,8 @@ def _scores(
             "truncate": "END",
         }
     headers = {"accept": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -103,6 +113,7 @@ def rerank_hits(
     api_key: str = "",
     top_n: int | None = None,
     text_key: str = "text",
+    extra_headers: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """*hits* sorted by relevance to *query*, best first, each with ``_rerank_score``.
 
@@ -117,6 +128,7 @@ def rerank_hits(
         url=_ranking_url(rerank_invoke_url),
         model_name=model_name,
         api_key=api_key,
+        extra_headers=extra_headers,
     )
     ranked = sorted(
         ({"_rerank_score": score, **hit} for hit, score in zip(hits, scores)),

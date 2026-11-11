@@ -112,6 +112,20 @@ def test_the_nim_schema(server: Server) -> None:
     assert [h["id"] for h in ranked] == ["b"]
 
 
+def test_extra_headers_reach_the_request(server: Server) -> None:
+    seen = server({"results": []})
+
+    rerank_hits(
+        "q",
+        _HITS,
+        rerank_invoke_url="https://inference.example/v1/rerank",
+        model_name="m",
+        extra_headers={"userid": "alice"},
+    )
+
+    assert seen[0].headers["userid"] == "alice"
+
+
 def test_a_base_url_gets_the_nim_ranking_path(server: Server) -> None:
     seen = server({"rankings": []})
     rerank_hits("q", _HITS, rerank_invoke_url="http://localhost:8015/", model_name="m")

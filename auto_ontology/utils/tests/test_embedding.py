@@ -162,6 +162,14 @@ def test_no_key_sends_no_authorization_header(endpoint) -> None:
     assert "authorization" not in seen[0].headers
 
 
+def test_extra_headers_reach_the_request(endpoint) -> None:
+    seen = endpoint(_ok)
+
+    embed_texts(["x"], _params(extra_headers={"userid": "alice"}), "passage")
+
+    assert seen[0].headers["userid"] == "alice"
+
+
 def test_the_key_stays_out_of_repr() -> None:
     assert "sk-test" not in repr(_params())
 

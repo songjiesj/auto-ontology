@@ -18,7 +18,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import resolve, resolve_headers
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +210,12 @@ _NON_REASONING_BASE_URL = resolve("NON_REASONING", "ENDPOINT")
 _NON_REASONING_MODEL_NAME = resolve("NON_REASONING", "MODEL")
 _NON_REASONING_API_KEY = resolve("NON_REASONING", "API_KEY")
 
+# Extra request headers attached to every chat request (e.g. an intranet
+# gateway's per-user identity header). JSON from <PREFIX>_EXTRA_HEADERS or
+# DEFAULT_MODELS_EXTRA_HEADERS.
+_EXTRA_HEADERS = resolve_headers("REASONING")
+_NON_REASONING_EXTRA_HEADERS = resolve_headers("NON_REASONING")
+
 
 def _build_client(
     *,
@@ -218,6 +224,7 @@ def _build_client(
     base_url: str,
     temperature: float,
     max_tokens: int,
+    default_headers: dict[str, str],
 ) -> BaseChatModel:
     """Build a chat client for the given model/endpoint.
 
@@ -239,6 +246,7 @@ def _build_client(
             max_tokens=max_tokens,
             timeout=LLM_INVOKE_TIMEOUT_S,
             max_retries=0,
+            default_headers=default_headers,
         )
 
     from langchain_nvidia_ai_endpoints import ChatNVIDIA
@@ -249,6 +257,7 @@ def _build_client(
         base_url=base_url,
         temperature=temperature,
         max_tokens=max_tokens,
+        default_headers=default_headers,
     )
     client._client.get_session_fn = lambda: _TimeoutSession(LLM_INVOKE_TIMEOUT_S)
     return client
@@ -276,6 +285,7 @@ def get_llm_client(
         base_url=_BASE_URL,
         temperature=temperature,
         max_tokens=max_tokens,
+        default_headers=_EXTRA_HEADERS,
     )
 
 
@@ -305,6 +315,7 @@ def get_non_reasoning_llm_client(
         base_url=_NON_REASONING_BASE_URL,
         temperature=temperature,
         max_tokens=max_tokens,
+        default_headers=_NON_REASONING_EXTRA_HEADERS,
     )
     _remember_non_reasoning(client)
     return client

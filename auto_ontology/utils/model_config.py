@@ -20,7 +20,11 @@ applies to the same triplet.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 # Built-in endpoint/model defaults, selected by the triplet's API key prefix.
 # Keyed by ``<PREFIX>_<FIELD>``. API keys are intentionally absent (they have no
@@ -98,3 +102,33 @@ def resolve(prefix: str, field: str) -> str:
     """
     key = f"{prefix}_{field}"
     return os.environ.get(key, "") or _default(field) or _builtin_default(prefix, key)
+
+
+def resolve_headers(prefix: str) -> dict[str, str]:
+    """Resolve ``<PREFIX>_EXTRA_HEADERS`` for a model role.
+
+    A gateway may require an extra header on every request (e.g. an intranet
+    gateway that demands a per-user identity header ``{"userid": "..."}``).
+    The value is a JSON object so more than one header can be supplied. The
+    role-specific var wins; when it is unset, ``DEFAULT_MODELS_EXTRA_HEADERS``
+    supplies a shared value. Malformed or non-object values degrade to ``{}``
+    (no extra headers) with a warning rather than failing startup.
+    """
+    raw = os.environ.get(f"{prefix}_EXTRA_HEADERS", "") or os.environ.get(
+        "DEFAULT_MODELS_EXTRA_HEADERS", ""
+    )
+    if not raw.strip():
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("Ignoring malformed extra-headers JSON for %s: %r", prefix, raw)
+        return {}
+    if not isinstance(value, dict):
+        logger.warning(
+            "Ignoring extra headers for %s that are not a JSON object: %r",
+            prefix,
+            raw,
+        )
+        return {}
+    return {str(k): str(v) for k, v in value.items()}

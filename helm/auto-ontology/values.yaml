@@ -42,6 +42,10 @@ pgadminPassword: admin
 defaultModelsApiKey: ""
 defaultModelsEndpoint: ""
 defaultModelsModel: ""
+# Extra HTTP headers (a JSON object string) attached to every model request,
+# e.g. an intranet gateway requiring a per-user identity header:
+# '{"userid":"xxxxxx"}'. Empty means none.
+defaultModelsExtraHeaders: ""
 # Legacy value names (pre-triplet). Still honored so existing
 # --set nvidiaApiKey / baseUrl / modelName configs keep working.
 nvidiaApiKey: ""
