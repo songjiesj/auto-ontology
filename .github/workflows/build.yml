@@ -1,0 +1,32 @@
+name: build-images
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: cp .env.example .env
+
+      - name: Build images
+        run: docker compose build
+
+      - name: Pull external images
+        run: |
+          docker pull pgvector/pgvector:pg17
+          docker pull dpage/pgadmin4:latest
+
+      - name: Save images
+        run: |
+          docker save -o auto-ontology-images.tar \
+            auto-ontology:latest auto-ontology-frontend:latest \
+            pgvector/pgvector:pg17 dpage/pgadmin4:latest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-ontology-images
+          path: auto-ontology-images.tar
