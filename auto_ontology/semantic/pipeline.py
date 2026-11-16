@@ -21,6 +21,10 @@ from auto_ontology.semantic.domain import DomainSummary, load_domain_summary
 from auto_ontology.semantic.embed import SemanticEmbedder
 from auto_ontology.semantic.models import ProcessTableResult
 from auto_ontology.semantic.visit_enter import process_table, reset_sampling_breaker
+from auto_ontology.utils.schema_blacklist import (
+    blacklist as schema_blacklist,
+    is_blacklisted_schema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +148,17 @@ def compile_semantic_layer(
         fetch_all_tables_without_term(database_name),
         key=lambda table: _table_commit_key(database_name, table),
     )
+    if schema_blacklist():
+        kept = [t for t in tables if not is_blacklisted_schema(t.get("schema_name"))]
+        dropped = len(tables) - len(kept)
+        if dropped:
+            logger.info(
+                "Semantic schema blacklist dropped %d table(s) from %d (schemas: %s)",
+                dropped,
+                len(tables),
+                ", ".join(sorted(schema_blacklist())),
+            )
+        tables = kept
     commit_queue = _OrderedCommitQueue()
     # Read once per run, not once per table: the flag lives in Postgres and
     # tables are processed in parallel, so a per-table read would be hundreds

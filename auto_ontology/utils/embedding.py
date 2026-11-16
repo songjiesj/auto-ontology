@@ -23,6 +23,7 @@ from __future__ import annotations
 import itertools
 import logging
 import math
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -119,6 +120,32 @@ _NO_AUTH = {"Authorization": Omit()}
 _clients: dict[tuple[str, str], OpenAI] = {}
 _clients_lock = threading.Lock()
 
+# Process-wide cap on embedding requests, in requests/minute (0 = unlimited).
+# The intranet gateway quotas embedding calls; without a cap a concurrent ingest
+# wave fires far past the per-minute limit and every batch comes back 429/503.
+_EMBED_RPM = float(os.environ.get("EMBED_RATE_LIMIT_PER_MIN", "10"))
+_RATE_LOCK = threading.Lock()
+_RATE_NEXT = {"ts": 0.0}
+
+
+def _acquire_rate_slot() -> None:
+    """Block until the next embedding request may be sent (token-bucket spacing).
+
+    Space out requests evenly (60 / ``_EMBED_RPM`` seconds apart) rather than
+    permitting a burst of ``_EMBED_RPM`` at once, so the gateway never sees a
+    spike. No-op when ``EMBED_RATE_LIMIT_PER_MIN`` is 0.
+    """
+    if _EMBED_RPM <= 0:
+        return
+    interval = 60.0 / _EMBED_RPM
+    with _RATE_LOCK:
+        now = time.monotonic()
+        due = _RATE_NEXT["ts"]
+        wait = max(0.0, due - now)
+        _RATE_NEXT["ts"] = max(now, due) + interval
+    if wait > 0.0:
+        time.sleep(wait)
+
 
 def _base_url(endpoint: str) -> str:
     """*endpoint* without a trailing ``/embeddings``, which the client appends.
@@ -188,6 +215,7 @@ def embed_texts(
     prefix = _text_prefix(params.model_name, input_type)
 
     def _embed_batch(indices: tuple[int, ...]) -> None:
+        _acquire_rate_slot()
         response = client.embeddings.create(
             model=params.model_name,
             input=[prefix + stripped[i] for i in indices],

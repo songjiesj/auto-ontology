@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # bound lives here, applied for the duration of a compilation, rather than at
 # the shared invoke call site where it also throttled callers that already
 # limit their own concurrency.
-SEMANTIC_LLM_MAX_INFLIGHT = int(os.environ.get("SEMANTIC_LLM_MAX_INFLIGHT", "6"))
+SEMANTIC_LLM_MAX_INFLIGHT = int(os.environ.get("SEMANTIC_LLM_MAX_INFLIGHT", "2"))
 
 
 def run_semantic_compilation(

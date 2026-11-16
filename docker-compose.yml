@@ -45,6 +45,10 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
+    # The intranet gateway hostname is not in public DNS; pin it here so the
+    # resolution survives container restarts (a hand-edited /etc/hosts does not).
+    extra_hosts:
+      - "aihub.citicsinfo.com:10.121.148.231"
     env_file:
       - .env
     environment:
@@ -74,6 +78,8 @@ services:
     command: ["ingestion_service"]
     ports:
       - "3002:3002"
+    extra_hosts:
+      - "aihub.citicsinfo.com:10.121.148.231"
     # The image healthcheck targets the backend (:3001/api/health/live); the
     # ingestion service serves its own on :3002. Liveness, not /health — that
     # one probes Postgres, and a container healthcheck gated on a dependency

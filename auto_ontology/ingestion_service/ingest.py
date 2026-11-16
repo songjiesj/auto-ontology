@@ -109,6 +109,10 @@ def run_ingest(connector: SQLDatabase) -> None:
     with _shared_connection(connector):
         tables_df, columns_df = ingest_catalog(connector)
 
+    # Note: schema-blacklisted tables never reach here — they are dropped at
+    # catalog extraction (``catalog.extract.create_dataframe``) before the
+    # catalog write, so neither the data-layer VDB nor column profiling sees them.
+
     if is_pii_detection_enabled():
         _run_pii_detection(columns_df, database_name)
     else:

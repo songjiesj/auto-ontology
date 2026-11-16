@@ -45,7 +45,7 @@ class StrictLLMOutputModel(BaseModel):
 
 
 RETRY_MAX_ATTEMPTS = 3
-LLM_INVOKE_TIMEOUT_S = int(os.environ.get("LLM_INVOKE_TIMEOUT_S", "120"))
+LLM_INVOKE_TIMEOUT_S = int(os.environ.get("LLM_INVOKE_TIMEOUT_S", "600"))
 
 # Concurrent LLM requests are unbounded here by default. A process-wide cap used
 # to live at this call site, defaulting to 6, to stop semantic compilation's
@@ -154,6 +154,10 @@ _RETRYABLE_TOKENS = (
     "AzureException",
     "InternalServerError",
     "litellm",
+    # DeepSeek reasoning models can end a turn having emitted only their
+    # reasoning chain, leaving ``content`` empty so langchain's structured-output
+    # parser fails with this message. A retry usually gets a real answer.
+    "does not have a 'parsed' field",
 )
 
 # Exception *type* names that are always transient/retryable regardless of
@@ -232,8 +236,17 @@ def _build_client(
     ``ChatOpenAI``, which supports structured output. Everything else uses
     ``ChatNVIDIA``.
     """
-    if model.startswith(("openai/", "azure/", "aws/")):
+    if model.startswith(("openai/", "azure/", "aws/", "deepseek")):
         from langchain_openai import ChatOpenAI
+
+        # Reasoning models (e.g. deepseek-v4.1-flash-local) spend a large
+        # prefix of their output budget on an internal "reasoning" chain before
+        # emitting the actual answer. A caller-set ``max_tokens`` sized for a
+        # non-reasoning model (300-2048) leaves no room for the answer: the
+        # completion stops at the reasoning chain and structured-output parsing
+        # raises ``LengthFinishReasonError``. Give them a floor.
+        if model.startswith("deepseek") and max_tokens < 8192:
+            max_tokens = 8192
 
         return ChatOpenAI(
             model=model,
@@ -433,6 +446,12 @@ def _is_claude(llm: BaseChatModel) -> bool:
     return "anthropic" in lowered or "claude" in lowered
 
 
+def _is_deepseek(llm: BaseChatModel) -> bool:
+    """True when *llm* serves a DeepSeek (reasoning) model, matched by name."""
+    model = str(getattr(llm, "model_name", "") or getattr(llm, "model", "") or "")
+    return "deepseek" in model.lower()
+
+
 def _system_messages_first(
     llm: BaseChatModel, messages: list[BaseMessage]
 ) -> list[BaseMessage]:
@@ -485,6 +504,14 @@ def _structured_output_kwargs(llm: BaseChatModel) -> dict:
     """
     if _is_claude(llm):
         return {"method": "function_calling", "tool_choice": None}
+    # DeepSeek reasoning models emit their internal reasoning as
+    # ``reasoning_content`` and can stop there, returning an empty ``content`` —
+    # the ``json_schema`` structured-output path then has nothing to parse and
+    # langchain raises "does not have a 'parsed' field". Forcing tool calling
+    # makes the model produce a structured tool argument instead of a free-form
+    # JSON body, which avoids that empty-content failure mode.
+    if _is_deepseek(llm):
+        return {"method": "function_calling"}
     return {}
 
 

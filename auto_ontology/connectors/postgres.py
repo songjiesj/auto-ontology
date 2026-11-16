@@ -146,6 +146,7 @@ class PostgresDatabase(SQLDatabase):
         view_type = TableTypes.VIEW
         materialized_view_type = TableTypes.MATERIALIZED_VIEW
         base_table_type = TableTypes.BASE_TABLE
+        relispartition_clause = self._relispartition_clause()
         return self.execute(f"""
             SELECT
                 n.nspname   AS table_schema,
@@ -159,7 +160,7 @@ class PostgresDatabase(SQLDatabase):
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND n.nspname NOT LIKE 'pg\\_%'
-              AND c.relispartition = false
+              {relispartition_clause}
               AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
               -- Restores what information_schema filtered for free: a relation
               -- the ingesting role cannot read must not be catalogued, or
@@ -168,6 +169,26 @@ class PostgresDatabase(SQLDatabase):
               AND has_table_privilege(c.oid, 'SELECT')
             ORDER BY n.nspname, c.relname
         """)
+
+    def _relispartition_clause(self) -> str:
+        """The SQL predicate to exclude partition children, or a GaussDWS-safe no-op.
+
+        ``pg_class.relispartition`` only exists on PostgreSQL 10+; GaussDWS (and
+        other PG 9.x lineage forks) lack the column, so the predicate must be
+        omitted there or introspection dies with ``column c.relispartition does
+        not exist``. Detected once and cached on the instance.
+        """
+        flag = getattr(self, "_has_relispartition_flag", None)
+        if flag is None:
+            try:
+                self.execute("SELECT relispartition FROM pg_class LIMIT 0")
+                flag = True
+            except psycopg.Error:
+                flag = False
+            self._has_relispartition_flag = flag
+        # Without the column there is no partitioned-parent concept to filter
+        # against, so the `relkind` set below is the whole story.
+        return "AND c.relispartition = false" if flag else "AND true"
 
     def get_columns(self) -> pd.DataFrame:
         """Columns for every relation :meth:`get_tables` returns.
@@ -194,7 +215,8 @@ class PostgresDatabase(SQLDatabase):
         catalogues, embeds and offers every table it cannot read, and every
         generated query against them dies with ``permission denied``.
         """
-        return self.execute("""
+        relispartition_clause = self._relispartition_clause()
+        return self.execute(f"""
             SELECT
                 n.nspname                        AS table_schema,
                 c.relname                        AS table_name,
@@ -209,7 +231,7 @@ class PostgresDatabase(SQLDatabase):
             JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
               AND n.nspname NOT LIKE 'pg\\_%'
-              AND c.relispartition = false
+              {relispartition_clause}
               AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
               AND has_table_privilege(c.oid, 'SELECT')
               AND a.attnum > 0

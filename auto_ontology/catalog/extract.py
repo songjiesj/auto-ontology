@@ -17,6 +17,7 @@ import pandas as pd
 
 from auto_ontology.catalog import table_filter
 from auto_ontology.catalog.normalize import normalize_columns, normalize_tables
+from auto_ontology.catalog.table_filter import filter_schema_blacklist
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from auto_ontology.connectors.base import SQLDatabase
@@ -92,6 +93,9 @@ def create_dataframe(connector: "SQLDatabase"):
     queries = connector.get_queries()
     pks = connector.get_pks()
     fks = connector.get_fks()
+    # Drop blacklisted schemas first so they never reach the catalog write,
+    # column profiling, the coverage check, or the embedding that follows.
+    tables, columns, views = filter_schema_blacklist(tables, columns, views)
     tables, columns, views = table_filter.apply(
         tables,
         columns,

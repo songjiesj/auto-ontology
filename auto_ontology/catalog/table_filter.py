@@ -39,8 +39,15 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
+from auto_ontology.utils.schema_blacklist import (
+    blacklist as schema_blacklist,
+    is_blacklisted_schema,
+)
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    import pandas as pd
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +145,58 @@ def filter_frame(
         lambda name: table_filter.keep("" if name is None else str(name))
     )
     return frame[keep]
+
+
+def _drop_blacklisted_schemas(
+    frame: "pd.DataFrame | None",
+) -> "pd.DataFrame | None":
+    """Drop rows whose ``table_schema`` is on the shared schema blacklist.
+
+    Operates before column-coverage validation so a blacklisted schema is removed
+    from tables, columns and views together — there is no listed-relation vs
+    described-column mismatch to trip the check. Frames without a ``table_schema``
+    column (``queries`` etc.) are returned untouched.
+    """
+    if frame is None or not schema_blacklist():
+        return frame
+    if getattr(frame, "empty", True):
+        return frame
+    if "table_schema" not in frame.columns:
+        return frame
+    keep = frame["table_schema"].map(
+        lambda s: not is_blacklisted_schema(None if pd.isna(s) else str(s))
+    )
+    return frame[keep]
+
+
+def filter_schema_blacklist(
+    tables: "pd.DataFrame | None",
+    columns: "pd.DataFrame | None",
+    views: "pd.DataFrame | None",
+) -> tuple["pd.DataFrame | None", "pd.DataFrame | None", "pd.DataFrame | None"]:
+    """Remove blacklisted schemas from the three relation frames together.
+
+    Must run across all three (and before coverage validation) so a dropped table
+    never leaves orphan columns that would fail ``create_dataframe``'s check.
+    """
+    bl = schema_blacklist()
+    if not bl:
+        return tables, columns, views
+
+    before = 0 if tables is None or tables.empty else len(tables)
+    tables = _drop_blacklisted_schemas(tables)
+    columns = _drop_blacklisted_schemas(columns)
+    views = _drop_blacklisted_schemas(views)
+    after = 0 if tables is None or tables.empty else len(tables)
+
+    if before != after:
+        logger.info(
+            "Schema blacklist (%s) kept %d of %d table(s)",
+            ", ".join(sorted(bl)),
+            after,
+            before,
+        )
+    return tables, columns, views
 
 
 def apply(
