@@ -183,7 +183,8 @@ def _generate_bridge_sql_attribute(
                 "You are an expert data engineer defining reusable join patterns "
                 "for many-to-many junction (bridge) tables. Bridge tables connect "
                 "entities through foreign keys, including self-referential cases "
-                "where multiple columns point at the same target table."
+                "where multiple columns point at the same target table. Write the "
+                "SqlAttribute name and description in Simplified Chinese."
             )
         ),
         HumanMessage(
@@ -202,9 +203,10 @@ def _generate_bridge_sql_attribute(
                 "or filters\n"
                 "  • no WHERE clause with literal business filters; structural "
                 "joins only\n"
-                "  • name — user-friendly Title Case label (e.g. 'Order Products', "
-                "'Also Buy')\n"
-                "  • description — what relationship the junction represents\n"
+                "  • name — concise business Chinese label (e.g. '订单商品', "
+                "'关联购买')\n"
+                "  • description — what relationship the junction represents, "
+                "in Chinese\n"
             )
         ),
     ]

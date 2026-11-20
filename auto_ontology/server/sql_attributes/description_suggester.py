@@ -32,6 +32,7 @@ contains the attribute.
 Your job is to describe in up to 3 sentences and no more than \
 {_DESCRIPTION_SUGGESTION_MAX_CHARS} characters the role of the given \
 attribute in the business to the business expert.
+Write the description in Simplified Chinese.
 Do not include the attribute name or raw SQL in your answer.
 Provide clear, assertive, and confident responses.
 Be certain in your responses; do not use words like 'likely' or 'maybe'.

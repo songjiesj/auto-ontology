@@ -32,8 +32,10 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from sqlglot import exp
 
+import psycopg
+
 from auto_ontology.connectors import get_connectors
-from auto_ontology.connectors.base import SQLDatabase
+from auto_ontology.connectors.base import SQLDatabase, StatementTimeout
 from auto_ontology.dal.attributes import (
     delete_semantic_fk,
     fetch_semantic_fk_join_groups,
@@ -48,7 +50,7 @@ from auto_ontology.utils.llm_invoke import (
     get_llm_client,
     invoke_with_structured_output,
 )
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import resolve, resolve_headers
 from auto_ontology.utils.retriever import Retriever
 from auto_ontology.utils.sample_values import stringify_sample_values
 from auto_ontology.utils.sql_identifiers import quoted_identifier
@@ -64,6 +66,17 @@ _EMBED_ENDPOINT = resolve("EMBED", "ENDPOINT")
 _EMBED_MODEL = resolve("EMBED", "MODEL")
 _NVIDIA_API_KEY = resolve("EMBED", "API_KEY")
 _WORKERS = 2
+
+# Cap on the per-edge overlap probe. The overlap SQL runs ``IN (SELECT ...
+# FROM <target>)`` against the target table, which on an MPP warehouse
+# (GaussDWS) can trigger a full-table redistribute/broadcast and hold the
+# pooled connection for far longer than the check is worth. Without a cap the
+# statement runs until the warehouse kills the connection (AdminShutdown),
+# which leaves the pool entry dead and — because the callers above retried
+# edge after edge — produced "connections never release" on GaussDWS. A
+# server-side ``statement_timeout`` (see PostgresDatabase.execute) cancels the
+# probe cleanly and returns the connection to the pool.
+_OVERLAP_PROBE_TIMEOUT_S = 30.0
 _SYSTEM_PROMPT = """\
 You are a database schema expert. You will be given a foreign-key column \
 description and a list of candidate primary-key columns retrieved from a \
@@ -132,7 +145,34 @@ def prune_disjoint_semantic_fks(database_name: str) -> int:
             f"WHERE {sc} IN (SELECT {tc} FROM {target}) LIMIT 1) AS shared"
         )
         try:
-            present, shared = (int(v) for v in connector.execute(sql).iloc[:, 0])
+            present, shared = (
+                int(v)
+                for v in connector.execute(
+                    sql, timeout_s=_OVERLAP_PROBE_TIMEOUT_S
+                ).iloc[:, 0]
+            )
+        except StatementTimeout:
+            logger.info(
+                "semantic FK overlap check timed out after %.0fs for %s.%s; "
+                "skipping",
+                _OVERLAP_PROBE_TIMEOUT_S,
+                row["source_table_name"],
+                row["source_column_name"],
+            )
+            continue
+        except (psycopg.errors.AdminShutdown, psycopg.OperationalError):
+            # The warehouse (or an operator) killed the connection, or it
+            # dropped mid-query. That is fatal to the whole probe loop — every
+            # remaining edge would just hit the same dead pool and pile on more
+            # failures — so report loudly and stop instead of silently
+            # "skipping" hundreds of edges.
+            logger.exception(
+                "semantic FK overlap check aborted: connection to the database "
+                "was terminated during %s.%s; stopping the overlap pass",
+                row["source_table_name"],
+                row["source_column_name"],
+            )
+            return pruned
         except Exception:
             logger.info(
                 "semantic FK overlap check skipped for %s.%s",
@@ -439,6 +479,7 @@ def _build_retriever(database_name: str) -> Retriever | None:
             model_name=_EMBED_MODEL,
             embed_invoke_url=_EMBED_ENDPOINT,
             api_key=_NVIDIA_API_KEY,
+            extra_headers=resolve_headers("EMBED"),
         ),
     )
 

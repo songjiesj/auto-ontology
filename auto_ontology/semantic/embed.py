@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from auto_ontology.utils.embedding import EmbedParams, batch_embed
-from auto_ontology.utils.model_config import resolve
+from auto_ontology.utils.model_config import resolve, resolve_headers
 from auto_ontology.utils.sample_values import stringify_sample_values
 from auto_ontology.vdb import get_semantic_vdb
 from auto_ontology.vdb.postgres import PostgresVDB
@@ -106,6 +106,7 @@ def build_semantic_embedder(
         embed_invoke_url=resolve("EMBED", "ENDPOINT"),
         model_name=resolve("EMBED", "MODEL"),
         api_key=api_key,
+        extra_headers=resolve_headers("EMBED"),
     )
     vdb = get_semantic_vdb(database_name=database_name, reset=reset)
     return SemanticEmbedder(

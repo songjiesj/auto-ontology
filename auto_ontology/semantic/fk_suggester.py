@@ -26,7 +26,8 @@ from auto_ontology.semantic.models import (
 logger = logging.getLogger(__name__)
 
 _SYSTEM = """\
-You review relational table metadata and produce three outputs:
+You review relational table metadata and produce three outputs. Write every \
+rationale and justification you emit in Simplified Chinese.
 
 1. fk_suggestions — columns that are likely foreign keys but are not already declared as
    FOREIGN_KEY or primary-key columns.

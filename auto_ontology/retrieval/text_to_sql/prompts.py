@@ -287,15 +287,18 @@ _MYSQL_DIALECT_RULES = (
 # table-based) — kept as a single source so the two call sites can't drift.
 _SQL_GENERATION_OUTPUT_SPEC = """Output (fill fields in this exact order):
 - thought: briefly explain your approach and state every assumption the
-  request or schema doesn't uniquely determine. For each that applies,
+  request or schema doesn't uniquely determine. Write it in the SAME language
+  as the user's question. For each that applies,
   state the choice AND the reason ("X, because Y"): zero/missing values
   (included, excluded, or coerced to 0; how division guards a zero
   denominator), and ties (what breaks a tie in a ranking/superlative
   query).
 - sql_code: the complete SQL, no comments or delimiters.
-- response: 2-4 sentences for the end user, in plain English. Describe WHAT is
-  being calculated, WHICH tables and columns are used, any FILTERS or time
-  windows applied, and the GROUPING/ORDERING.
+- response: 2-4 sentences for the end user, written in the SAME language as the
+  user's question (a Chinese question gets a Chinese response; an English
+  question gets an English response). Describe WHAT is being calculated, WHICH
+  tables and columns are used, any FILTERS or time windows applied, and the
+  GROUPING/ORDERING.
   Do NOT include SQL and code fences, raw identifiers like ``schema.table``,
   or meta-commentary about your reasoning. Refer to tables
   and columns by their human-readable names.

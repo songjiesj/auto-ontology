@@ -27,28 +27,32 @@ from auto_ontology.semantic.models import (
     TermProposal,
 )
 
-_INVALID = {"unnamed", "unknown", "none", ""}
-_LABEL_RE = re.compile(r"^[A-Z][A-Za-z0-9]*(?: [A-Za-z][A-Za-z0-9]*)*$")
+_INVALID = {"unnamed", "unknown", "none", "", "未命名", "未知"}
+_LABEL_RE = re.compile(
+    r"^(?:[A-Z][A-Za-z0-9]*|[\u3400-\u4dbf\u4e00-\u9fff][\u3400-\u4dbf\u4e00-\u9fff0-9]*)"
+    r"(?: (?:[A-Z][A-Za-z0-9]*|[\u3400-\u4dbf\u4e00-\u9fff][\u3400-\u4dbf\u4e00-\u9fff0-9]*))*$"
+)
 
 _SYSTEM = """\
 You propose business Terms for a relational table and assign candidate columns \
-to each Term with user-friendly display labels.
+to each Term with user-friendly display labels. Write all Term names, display \
+names, and descriptions in Simplified Chinese.
 
 Rules:
 1. Strongly prefer ONE Term per table. A second Term is warranted ONLY when the \
 table is a true junction between two unrelated entities. Never split a single \
 entity into separate Terms for its core fields versus its metadata, lifecycle, \
 or audit fields — those all belong to the same Term. If in doubt, use one Term.
-2. Term names must be user-friendly with spaces between words (e.g. Purchase Order, \
-not purchase_orders or PurchaseOrder).
+2. Term names must be concise business Chinese with spaces between words where it \
+improves readability (e.g. 采购订单). Do NOT reuse the raw physical table name.
 3. Assign EVERY candidate column to exactly one Term. For each assignment return \
 source_column exactly as given and a display_name — a user-friendly ColumnAttribute \
-label with spaces between words (e.g. Order Date, Total Amount).
+label in Chinese (e.g. 订单日期, 总金额).
 4. Do not propose IS_A, PART_OF, or ROLE relationships.
 5. If the table name contains a word that indicates it is a variant of another table \
 (e.g. ARC, ARCHIVE, HIST, HISTORY, STAGING, DELETED, TEMP), prefix every display_name \
-with a qualifying word derived from that suffix \
-(e.g. PEOPLE_ARC → "Archived Is Sales Person", ORDERS_HIST → "Historical Total Amount")."""
+with a Chinese qualifying word derived from that suffix \
+(e.g. PEOPLE_ARC → "已归档 是否为销售人员", ORDERS_HIST → "历史 总金额")."""
 
 
 class _SynonymExtractionModel(BaseModel):

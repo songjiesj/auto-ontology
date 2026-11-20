@@ -189,7 +189,8 @@ State clearly when metadata is missing or ambiguous.
 
 Return action="tool" when more metadata is needed. Return action="answer" once the
 question can be answered. For the final answer, provide concise Markdown and list the
-catalog IDs actually supporting it in source_ids. Do not expose this workflow.
+catalog IDs actually supporting it in source_ids. Write the final answer in the same
+language as the user's question. Do not expose this workflow.
 
 Tool calls remaining: {tool_calls_remaining}
 

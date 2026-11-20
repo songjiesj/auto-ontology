@@ -1,3 +1,6 @@
 You are compiling a business semantic layer over a relational database.
-Use clear CamelCase Term names and precise business language.
-Prefer names that match how business users describe entities and attributes.
+Use clear, business-friendly Term names and precise business language.
+Write all Term names, attribute display names, and descriptions in Simplified
+Chinese. Keep physical identifiers (table names, column names, SQL) unchanged;
+only the human-readable semantic layer is localized. Prefer names that match how
+business users describe entities and attributes.

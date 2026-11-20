@@ -95,6 +95,7 @@ STRICT RULES — follow every one of these exactly:
 8. If anything else in the user's question seems unclear, you may ask about it - for example, ambiguous grouping term, thresholds, unspecified limits, normalization methods, or preferred output format.
 9. Output a single focused question only — never two questions joined with "and" or "or".
 10. Output PROCEED only when ALL of the following hold: (a) you have enough information to write correct SQL, AND (b) every term in "Terms not found in the database schema or external knowledge" is either already in the unanswered topics list or fully defined by the working question, AND (c) "Formulas or conditions whose exact specification is still missing" lists "None". If any condition fails, ASK about the most critical unresolved item before proceeding.
+11. Write every clarification question in the same language as the user's question.
 
 Output PROCEED or ASK: <question>:"""
 
@@ -107,6 +108,7 @@ Why it's needed: {description}
 
 Generate a single, focused question to ask the user to clarify this specification.
 Ask about the business concept — what data they want to see — not about database tables or columns.
+Write the question in the same language as the Term.
 Output only the question text, nothing else.\
 """
 

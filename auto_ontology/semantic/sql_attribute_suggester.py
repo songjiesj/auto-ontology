@@ -501,7 +501,8 @@ def _judge_with_llm(
                 "which ones represent reusable business logic worth naming. "
                 "A SqlAttribute is a named, reusable SQL expression — a filter, "
                 "aggregation, or calculation — that captures a clear business concept "
-                "and is specific enough to be useful while general enough to recur."
+                "and is specific enough to be useful while general enough to recur. "
+                "Write every SqlAttribute name and description in Simplified Chinese."
             )
         ),
         HumanMessage(
@@ -560,12 +561,11 @@ def _judge_with_llm(
                 "     Ignore pure FK-only joins and UNION branches that select from a "
                 "single table with no join or filter.\n\n"
                 "For each chosen expression provide:\n"
-                "  • name — user-friendly Title Case label with spaces between words, "
-                "matching the ColumnAttribute naming style "
-                "(e.g. 'Active Customer Filter', 'Revenue Above Threshold', "
-                "'Last 90 Days Activity')\n"
+                "  • name — concise business Chinese label with spaces between words "
+                "where it improves readability "
+                "(e.g. '活跃客户筛选', '收入超阈值', '近90天活动')\n"
                 "  • description — what business logic it captures, why it matters for "
-                "this term, and when a data consumer would apply it\n"
+                "this term, and when a data consumer would apply it, in Chinese\n"
                 "  • expression — the exact SQL expression copied verbatim\n\n"
                 "Return an empty list if none qualify."
             )

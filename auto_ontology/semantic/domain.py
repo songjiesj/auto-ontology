@@ -42,6 +42,8 @@ def load_system_prompt() -> str:
         return path.read_text().strip()
     return (
         "You are compiling a business semantic layer over a relational database. "
-        "Use clear, human-readable Term names with spaces between words and precise "
-        "business language."
+        "Use clear, business-friendly Term names and precise business language. "
+        "Write all Term names, attribute display names, and descriptions in "
+        "Simplified Chinese; keep physical identifiers (table/column names, SQL) "
+        "unchanged."
     )

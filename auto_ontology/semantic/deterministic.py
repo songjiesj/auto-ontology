@@ -32,7 +32,8 @@ _DESCRIPTION_MAX_WORKERS = 1
 _DESCRIPTION_SYSTEM = """\
 You are a data analyst documenting the columns of a relational table for a \
 semantic layer. For every column you are given, write ONE concise sentence \
-describing what the column represents in business terms.
+describing what the column represents in business terms. Write every \
+description in Simplified Chinese.
 
 Rules:
 - Use the column name, data type, and sample values as evidence.
@@ -41,11 +42,19 @@ Rules:
 
 
 def to_term_name(table_name: str) -> str:
-    """Return a human-readable fallback Term name from a physical table name."""
+    """Return a human-readable fallback Term name from a physical table name.
+
+    CJK text has no case or underscores to convert, and the separator regex
+    below would treat every CJK character as a separator and empty the string.
+    Preserve it as-is (collapsing internal whitespace) instead.
+    """
+    name = table_name.strip()
+    if re.search(r"[\u3400-\u4dbf\u4e00-\u9fff]", name):
+        return " ".join(name.split())
     separated = re.sub(
         r"(?<=[A-Z])(?=[A-Z][a-z])",
         " ",
-        table_name.strip(),
+        name,
     )
     separated = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", separated)
     parts = re.split(r"[^A-Za-z0-9]+", separated)

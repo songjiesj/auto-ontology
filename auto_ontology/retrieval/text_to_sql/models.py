@@ -226,7 +226,8 @@ class SQLGenerationModel(StrictModel):
         description=(
             "Briefly explain the SQL approach and explicitly state every assumption "
             "made where the user's request or available schema does not uniquely "
-            "determine the query. Do not omit assumptions. For each of the following "
+            "determine the query. Write it in the same language as the user's "
+            "question. Do not omit assumptions. For each of the following "
             'that applies, state the choice AND the reason ("X, because Y"): '
             "(1) time window — the concrete boundary for any vague/relative time "
             "phrase (e.g. 'recently'); (2) zero/missing values — whether zero-count "
@@ -245,7 +246,9 @@ class SQLGenerationModel(StrictModel):
     response: NonEmptyStr = Field(
         ...,
         description=(
-            "User-facing summary in plain English (2-4 sentences): describe what "
+            "User-facing summary in the SAME language as the user's question "
+            "(a Chinese question gets a Chinese response; an English question "
+            "gets an English response), 2-4 sentences: describe what "
             "is being calculated, which tables and columns are used, any filters "
             "or time windows applied, and the grouping/ordering. Refer to tables "
             "and columns by their human-readable names. "
